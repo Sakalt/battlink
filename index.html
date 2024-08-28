@@ -45,6 +45,7 @@
             color: white;
             font-size: 20px;
             cursor: pointer;
+            overflow: hidden;
         }
         #joystickInner {
             width: 50px;
@@ -53,11 +54,27 @@
             border-radius: 50%;
             position: absolute;
         }
+        #weaponButton {
+            position: fixed;
+            bottom: 20px;
+            right: 100px;
+            width: 60px;
+            height: 60px;
+            background-color: #28a745;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 20px;
+            cursor: pointer;
+        }
     </style>
 </head>
 <body>
     <canvas id="gameCanvas" width="800" height="600"></canvas>
-    <div id="shoot" class="button">Shoot</div>
+    <div id="shootButton" class="button">射</div>
+    <div id="weaponButton" class="button">選剣</div>
     <div id="joystick" class="joystick">
         <div id="joystickInner"></div>
     </div>
@@ -67,10 +84,10 @@
         const inkMap = [];
 
         const weapons = {
-            '剣': { fireRate: 250, power: 10, ink: 20 },
+            '剣': { fireRate: 100, power: 10, ink: 20 },
             'レーザーガン': { fireRate: 200, power: 20, ink: 10 },
             'マーカー': { fireRate: 300, power: 5, ink: 30 },
-            'バッシャー': { fireRate: 100, power: 20, ink: 35 }
+            'バッシャー': { fireRate: 150, power: 15, ink: 15 }
         };
 
         let player = {
@@ -94,10 +111,16 @@
 
         let playerWeapon = weapons[player.weapon];
         let joystick = { x: 0, y: 0, radius: 50, innerX: 0, innerY: 0 };
+        let weaponSelection = Object.keys(weapons);
+        let currentWeaponIndex = 0;
 
         function getRandomWeapon() {
-            const keys = Object.keys(weapons);
-            return keys[Math.floor(Math.random() * keys.length)];
+            return weaponSelection[Math.floor(Math.random() * weaponSelection.length)];
+        }
+
+        function updateWeapon() {
+            player.weapon = weaponSelection[currentWeaponIndex];
+            playerWeapon = weapons[player.weapon];
         }
 
         function drawPlayer() {
@@ -165,8 +188,14 @@
             inkMap.push({ x: player.x, y: player.y, size: playerWeapon.ink, team: player.team });
         }
 
+        function selectNextWeapon() {
+            currentWeaponIndex = (currentWeaponIndex + 1) % weaponSelection.length;
+            updateWeapon();
+        }
+
         document.getElementById('joystick').addEventListener('touchmove', handleTouchMove);
-        document.getElementById('shoot').addEventListener('click', shoot);
+        document.getElementById('shootButton').addEventListener('click', shoot);
+        document.getElementById('weaponButton').addEventListener('click', selectNextWeapon);
 
         function updateJoystickPosition() {
             const joystickElem = document.getElementById('joystick');
