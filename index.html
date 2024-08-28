@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ナワバリバトル</title>
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+            background-color: #f0f0f0;
+        }
+        #gameCanvas {
+            display: block;
+            margin: 0 auto;
+            background-color: #e0e0e0;
+            border: 2px solid #333;
+        }
+        .button {
+            position: fixed;
+            bottom: 20px;
+            left: 20px;
+            width: 60px;
+            height: 60px;
+            background-color: #007bff;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 20px;
+            cursor: pointer;
+        }
+        .joystick {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            width: 100px;
+            height: 100px;
+            background-color: #007bff;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 20px;
+            cursor: pointer;
+        }
+        #joystickInner {
+            width: 50px;
+            height: 50px;
+            background-color: #0056b3;
+            border-radius: 50%;
+            position: absolute;
+        }
+    </style>
+</head>
+<body>
+    <canvas id="gameCanvas" width="800" height="600"></canvas>
+    <div id="shootButton" class="button">Shoot</div>
+    <div id="joystick" class="joystick">
+        <div id="joystickInner"></div>
+    </div>
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        const inkMap = [];
+
+        const weapons = {
+            '剣': { fireRate: 100, power: 10, ink: 20 },
+            'レーザーガン': { fireRate: 200, power: 20, ink: 10 },
+            'マーカー': { fireRate: 300, power: 5, ink: 30 },
+            'バッシャー': { fireRate: 150, power: 15, ink: 15 }
+        };
+
+        let player = {
+            x: 50,
+            y: 50,
+            size: 20,
+            color: 'blue',
+            team: 'blue',
+            weapon: '剣',
+            alive: true,
+            speed: 5
+        };
+
+        const cpu = {
+            x: 400,
+            y: 300,
+            size: 20,
+            color: 'red',
+            team: 'red'
+        };
+
+        let playerWeapon = weapons[player.weapon];
+        let joystick = { x: 0, y: 0, radius: 50, innerX: 0, innerY: 0 };
+
+        function getRandomWeapon() {
+            const keys = Object.keys(weapons);
+            return keys[Math.floor(Math.random() * keys.length)];
+        }
+
+        function drawPlayer() {
+            ctx.beginPath();
+            ctx.arc(player.x, player.y, player.size, 0, Math.PI * 2);
+            ctx.fillStyle = player.color;
+            ctx.fill();
+            ctx.closePath();
+        }
+
+        function drawCpu() {
+            ctx.beginPath();
+            ctx.arc(cpu.x, cpu.y, cpu.size, 0, Math.PI * 2);
+            ctx.fillStyle = cpu.color;
+            ctx.fill();
+            ctx.closePath();
+        }
+
+        function drawInk() {
+            inkMap.forEach(ink => {
+                ctx.beginPath();
+                ctx.arc(ink.x, ink.y, ink.size, 0, Math.PI * 2);
+                ctx.fillStyle = ink.team === 'blue' ? 'rgba(0, 0, 255, 0.3)' : 'rgba(255, 0, 0, 0.3)';
+                ctx.fill();
+                ctx.closePath();
+            });
+        }
+
+        function draw() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            drawInk();
+            drawPlayer();
+            drawCpu();
+        }
+
+        function respawnPlayer() {
+            setTimeout(() => {
+                player.x = 50;
+                player.y = 50;
+                player.alive = true;
+                playerWeapon = weapons[player.weapon];
+            }, 3000); // 3秒後に復活
+        }
+
+        function handleTouchMove(event) {
+            const touch = event.touches[0];
+            const dx = touch.clientX - canvas.offsetLeft - joystick.x;
+            const dy = touch.clientY - canvas.offsetTop - joystick.y;
+            const angle = Math.atan2(dy, dx);
+            const distance = Math.min(joystick.radius, Math.sqrt(dx * dx + dy * dy));
+
+            joystick.innerX = distance * Math.cos(angle);
+            joystick.innerY = distance * Math.sin(angle);
+            player.x += joystick.innerX / joystick.radius * player.speed;
+            player.y += joystick.innerY / joystick.radius * player.speed;
+
+            // 画面から外れないようにする
+            player.x = Math.max(0, Math.min(canvas.width, player.x));
+            player.y = Math.max(0, Math.min(canvas.height, player.y));
+        }
+
+        function shoot() {
+            if (!player.alive) return;
+            // インクを地面に追加
+            inkMap.push({ x: player.x, y: player.y, size: playerWeapon.ink, team: player.team });
+        }
+
+        document.getElementById('joystick').addEventListener('touchmove', handleTouchMove);
+        document.getElementById('shootButton').addEventListener('click', shoot);
+
+        function updateJoystickPosition() {
+            const joystickElem = document.getElementById('joystick');
+            joystick.x = joystickElem.offsetLeft + joystickElem.clientWidth / 2;
+            joystick.y = joystickElem.offsetTop + joystickElem.clientHeight / 2;
+        }
+
+        updateJoystickPosition();
+        setInterval(() => {
+            if (player.alive) {
+                draw();
+            } else {
+                respawnPlayer();
+            }
+        }, 1000 / 30); // 毎秒30フレーム
+
+        // CPUとの簡単な当たり判定（仮）
+        function checkCollision() {
+            const dx = player.x - cpu.x;
+            const dy = player.y - cpu.y;
+            const distance = Math.sqrt(dx * dx + dy * dy);
+
+            if (distance < player.size + cpu.size) {
+                player.alive = false;
+                respawnPlayer();
+            }
+        }
+
+        setInterval(checkCollision, 1000 / 30); // 毎秒30回衝突判定
+    </script>
+</body>
+</html>
