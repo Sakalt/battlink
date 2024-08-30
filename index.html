@@ -19,7 +19,6 @@
         .button {
             position: fixed;
             bottom: 20px;
-            left: 20px;
             width: 60px;
             height: 60px;
             background-color: #007bff;
@@ -31,6 +30,13 @@
             font-size: 16px;
             cursor: pointer;
             user-select: none;
+        }
+        #shootButton {
+            left: 20px;
+        }
+        #weaponButton {
+            right: 100px;
+            background-color: #28a745;
         }
         .joystick {
             position: fixed;
@@ -55,22 +61,6 @@
             border-radius: 50%;
             position: absolute;
         }
-        #weaponButton {
-            position: fixed;
-            bottom: 20px;
-            right: 100px;
-            width: 60px;
-            height: 60px;
-            background-color: #28a745;
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            color: white;
-            font-size: 16px;
-            cursor: pointer;
-            user-select: none;
-        }
     </style>
 </head>
 <body>
@@ -89,7 +79,9 @@
             '剣': { fireRate: 100, power: 10, ink: 20 },
             'レーザーガン': { fireRate: 200, power: 20, ink: 10 },
             'マーカー': { fireRate: 300, power: 5, ink: 30 },
-            'バッシャー': { fireRate: 150, power: 15, ink: 15 }
+            'バッシャー': { fireRate: 150, power: 15, ink: 15 },
+            'スピナー': { fireRate: 160, power: 10, ink: 50 },
+            'シャープアルコールマーカー': { fireRate: 250, power: 25, ink: 25 }
         };
 
         let player = {
@@ -108,7 +100,8 @@
             y: 300,
             size: 20,
             color: 'red',
-            team: 'red'
+            team: 'red',
+            shootCooldown: 0
         };
 
         let playerWeapon = weapons[player.weapon];
@@ -194,6 +187,24 @@
             updateWeapon();
         }
 
+        function updateCpu() {
+            // プレイヤーが近くにいる場合に攻撃する
+            const dx = player.x - cpu.x;
+            const dy = player.y - cpu.y;
+            const distance = Math.sqrt(dx * dx + dy * dy);
+
+            if (distance < 100) { // プレイヤーが近くにいる場合
+                if (cpu.shootCooldown <= 0) {
+                    // プレイヤーに向かってインクを撃つ
+                    inkMap.push({ x: cpu.x, y: cpu.y, size: playerWeapon.ink, team: cpu.team });
+                    cpu.shootCooldown = 1000; // クールダウン
+                }
+            }
+
+            // クールダウンを減少させる
+            cpu.shootCooldown = Math.max(0, cpu.shootCooldown - 1000 / 30);
+        }
+
         document.getElementById('joystick').addEventListener('touchmove', handleTouchMove);
         document.getElementById('shootButton').addEventListener('click', shoot);
         document.getElementById('weaponButton').addEventListener('click', selectNextWeapon);
@@ -208,6 +219,7 @@
         setInterval(() => {
             if (player.alive) {
                 draw();
+                updateCpu();
             } else {
                 respawnPlayer();
             }
