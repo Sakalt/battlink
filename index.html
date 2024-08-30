@@ -82,7 +82,10 @@
             'バッシャー': { fireRate: 150, power: 15, ink: 15, shape: 'circle', range: 120 },
             'スピナー': { fireRate: 160, power: 10, ink: 50, shape: 'circle', range: 180 },
             'シャープアルコールマーカー': { fireRate: 250, power: 25, ink: 25, shape: 'circle', range: 200 },
-            'ラインマーカー': { fireRate: 150, power: 10, ink: 30, shape: 'line', range: 150 }
+            'ラインマーカー': { fireRate: 150, power: 10, ink: 30, shape: 'line', range: 150 },
+            'トライデント': { fireRate: 300, power: 25, ink: 40, shape: 'trident', range: 150 },
+            '星': { fireRate: 400, power: 30, ink: 20, shape: 'star', range: 100 },
+            '軌道銃': { fireRate: 390, power: 12, ink: 18, shape: 'star', range: 300 }
         };
 
         let player = {
@@ -128,6 +131,16 @@
                 color: 'blue',
                 team: 'blue',
                 weapon: 'バッシャー',
+                shootCooldown: 0,
+                hp: 100
+            },
+            {
+                x: 200,
+                y: 200,
+                size: 20,
+                color: 'blue',
+                team: 'blue',
+                weapon: 'スピナー',
                 shootCooldown: 0,
                 hp: 100
             }
@@ -179,6 +192,26 @@
                 } else if (ink.shape === 'line') {
                     ctx.moveTo(ink.x - ink.size, ink.y);
                     ctx.lineTo(ink.x + ink.size, ink.y);
+                } else if (ink.shape === 'trident') {
+                    ctx.moveTo(ink.x, ink.y);
+                    ctx.lineTo(ink.x - ink.size / 2, ink.y - ink.size);
+                    ctx.lineTo(ink.x + ink.size / 2, ink.y - ink.size);
+                    ctx.closePath();
+                    ctx.moveTo(ink.x, ink.y);
+                    ctx.lineTo(ink.x - ink.size / 4, ink.y - ink.size * 1.5);
+                    ctx.lineTo(ink.x + ink.size / 4, ink.y - ink.size * 1.5);
+                } else if (ink.shape === 'star') {
+                    const radius = ink.size;
+                    const spikes = 5;
+                    const step = Math.PI / spikes;
+                    const shift = Math.PI / 2 * 3;
+                    ctx.beginPath();
+                    for (let i = 0; i < spikes * 2; i++) {
+                        const x = ink.x + Math.cos(shift + i * step) * (i % 2 === 0 ? radius : radius / 2);
+                        const y = ink.y + Math.sin(shift + i * step) * (i % 2 === 0 ? radius : radius / 2);
+                        ctx.lineTo(x, y);
+                    }
+                    ctx.closePath();
                 }
                 ctx.fillStyle = ink.team === 'blue' ? '#0000aa' : '#aa0000';
                 ctx.fill();
@@ -204,30 +237,26 @@
             }, 3000); // 3秒後に復活
         }
 
-        function handleTouchMove(event) {
-            const touch = event.touches[0];
-            const dx = touch.clientX - joystick.x;
-            const dy = touch.clientY - joystick.y;
-            const angle = Math.atan2(dy, dx);
-            const distance = Math.min(joystick.radius, Math.sqrt(dx * dx + dy * dy));
-
-            joystick.innerX = distance * Math.cos(angle);
-            joystick.innerY = distance * Math.sin(angle);
-            player.x += joystick.innerX / joystick.radius * player.speed;
-            player.y += joystick.innerY / joystick.radius * player.speed;
-
-            // ジョイスティックの位置更新
-            document.getElementById('joystickInner').style.transform = `translate(${joystick.innerX}px, ${joystick.innerY}px)`;
-
-            // 画面から外れないようにする
-            player.x = Math.max(0, Math.min(canvas.width, player.x));
-            player.y = Math.max(0, Math.min(canvas.height, player.y));
+        function handleTouchMove(e) {
+            e.preventDefault();
+            const touch = e.touches[0];
+            const rect = canvas.getBoundingClientRect();
+            const x = touch.clientX - rect.left;
+            const y = touch.clientY - rect.top;
+            const dx = x - joystick.x;
+            const dy = y - joystick.y;
+            const distance = Math.sqrt(dx * dx + dy * dy);
+            const maxDistance = joystick.radius;
+            joystick.innerX = Math.min(maxDistance, distance) * (dx / distance);
+            joystick.innerY = Math.min(maxDistance, distance) * (dy / distance);
+            joystick.x += joystick.innerX;
+            joystick.y += joystick.innerY;
         }
 
         function shoot() {
-            if (!player.alive) return;
-            // インクを地面に追加
-            inkMap.push({ x: player.x, y: player.y, size: playerWeapon.ink, team: player.team, shape: playerWeapon.shape });
+            if (player.alive) {
+                inkMap.push({ x: player.x, y: player.y, size: playerWeapon.ink, team: player.team, shape: playerWeapon.shape });
+            }
         }
 
         function selectNextWeapon() {
@@ -241,7 +270,6 @@
                 const dy = player.y - enemy.y;
                 const distance = Math.sqrt(dx * dx + dy * dy);
 
-                // 自動移動
                 if (distance > 10) {
                     const moveX = (dx / distance) * 1.2;
                     const moveY = (dy / distance) * 1.2;
@@ -249,7 +277,6 @@
                     enemy.y += moveY;
                 }
 
-                // 攻撃
                 if (distance < playerWeapon.range) {
                     if (enemy.shootCooldown <= 0) {
                         inkMap.push({ x: enemy.x, y: enemy.y, size: playerWeapon.ink, team: enemy.team, shape: playerWeapon.shape });
@@ -258,6 +285,34 @@
                 }
 
                 enemy.shootCooldown = Math.max(0, enemy.shootCooldown - 1000 / 30);
+            });
+
+            allies.forEach(ally => {
+                const dx = player.x - ally.x;
+                const dy = player.y - ally.y;
+                const distance = Math.sqrt(dx * dx + dy * dy);
+
+                if (distance > 10) {
+                    const moveX = (dx / distance) * 1.2;
+                    const moveY = (dy / distance) * 1.2;
+                    ally.x += moveX;
+                    ally.y += moveY;
+                }
+
+                enemies.forEach(enemy => {
+                    const dxEnemy = enemy.x - ally.x;
+                    const dyEnemy = enemy.y - ally.y;
+                    const distanceEnemy = Math.sqrt(dxEnemy * dxEnemy + dyEnemy * dyEnemy);
+
+                    if (distanceEnemy < playerWeapon.range) {
+                        if (ally.shootCooldown <= 0) {
+                            inkMap.push({ x: ally.x, y: ally.y, size: playerWeapon.ink, team: ally.team, shape: playerWeapon.shape });
+                            ally.shootCooldown = 1000; // クールダウン
+                        }
+                    }
+                });
+
+                ally.shootCooldown = Math.max(0, ally.shootCooldown - 1000 / 30);
             });
         }
 
