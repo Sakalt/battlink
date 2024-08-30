@@ -66,7 +66,7 @@
 <body>
     <canvas id="gameCanvas" width="800" height="600"></canvas>
     <div id="shootButton" class="button">シュート</div>
-    <div id="weaponButton" class="button2">武器選ぶ</div>
+    <div id="weaponButton" class="button">武器選ぶ</div>
     <div id="joystick" class="joystick">
         <div id="joystickInner"></div>
     </div>
@@ -76,12 +76,13 @@
         const inkMap = [];
 
         const weapons = {
-            '剣': { fireRate: 100, power: 10, ink: 20 },
-            'レーザーガン': { fireRate: 200, power: 20, ink: 10 },
-            'マーカー': { fireRate: 300, power: 5, ink: 30 },
-            'バッシャー': { fireRate: 150, power: 15, ink: 15 },
-            'スピナー': { fireRate: 160, power: 10, ink: 50 },
-            'シャープアルコールマーカー': { fireRate: 250, power: 25, ink: 25 }
+            '剣': { fireRate: 100, power: 10, ink: 20, shape: 'circle' },
+            'レーザーガン': { fireRate: 200, power: 20, ink: 10, shape: 'circle' },
+            'マーカー': { fireRate: 300, power: 5, ink: 30, shape: 'circle' },
+            'バッシャー': { fireRate: 150, power: 15, ink: 15, shape: 'circle' },
+            'スピナー': { fireRate: 160, power: 10, ink: 50, shape: 'circle' },
+            'シャープアルコールマーカー': { fireRate: 250, power: 25, ink: 25, shape: 'circle' },
+            'ラインアルコールマーカー': { fireRate: 150, power: 10, ink: 30, shape: 'line' }
         };
 
         let player = {
@@ -133,7 +134,12 @@
         function drawInk() {
             inkMap.forEach(ink => {
                 ctx.beginPath();
-                ctx.arc(ink.x, ink.y, ink.size, 0, Math.PI * 2);
+                if (ink.shape === 'circle') {
+                    ctx.arc(ink.x, ink.y, ink.size, 0, Math.PI * 2);
+                } else if (ink.shape === 'line') {
+                    ctx.moveTo(ink.x - ink.size, ink.y);
+                    ctx.lineTo(ink.x + ink.size, ink.y);
+                }
                 ctx.fillStyle = ink.team === 'blue' ? 'rgba(0, 0, 255, 0.3)' : 'rgba(255, 0, 0, 0.3)';
                 ctx.fill();
                 ctx.closePath();
@@ -179,7 +185,7 @@
         function shoot() {
             if (!player.alive) return;
             // インクを地面に追加
-            inkMap.push({ x: player.x, y: player.y, size: playerWeapon.ink, team: player.team });
+            inkMap.push({ x: player.x, y: player.y, size: playerWeapon.ink, team: player.team, shape: playerWeapon.shape });
         }
 
         function selectNextWeapon() {
@@ -196,7 +202,7 @@
             if (distance < 100) { // プレイヤーが近くにいる場合
                 if (cpu.shootCooldown <= 0) {
                     // プレイヤーに向かってインクを撃つ
-                    inkMap.push({ x: cpu.x, y: cpu.y, size: playerWeapon.ink, team: cpu.team });
+                    inkMap.push({ x: cpu.x, y: cpu.y, size: playerWeapon.ink, team: cpu.team, shape: playerWeapon.shape });
                     cpu.shootCooldown = 1000; // クールダウン
                 }
             }
