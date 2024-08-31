@@ -192,6 +192,7 @@
                 } else if (ink.shape === 'line') {
                     ctx.moveTo(ink.x - ink.size, ink.y);
                     ctx.lineTo(ink.x + ink.size, ink.y);
+                    ctx.stroke(); // 線を描画
                 } else if (ink.shape === 'trident') {
                     ctx.moveTo(ink.x, ink.y);
                     ctx.lineTo(ink.x - ink.size / 2, ink.y - ink.size);
@@ -200,6 +201,7 @@
                     ctx.moveTo(ink.x, ink.y);
                     ctx.lineTo(ink.x - ink.size / 4, ink.y - ink.size * 1.5);
                     ctx.lineTo(ink.x + ink.size / 4, ink.y - ink.size * 1.5);
+                    ctx.closePath();
                 } else if (ink.shape === 'star') {
                     const radius = ink.size;
                     const spikes = 5;
@@ -215,7 +217,7 @@
                 }
                 ctx.fillStyle = ink.team === 'blue' ? '#0000aa' : '#aa0000';
                 ctx.fill();
-                ctx.closePath();
+                ctx.stroke(); // ストロークを描画
             });
         }
 
@@ -243,25 +245,22 @@
             const rect = canvas.getBoundingClientRect();
             const x = touch.clientX - rect.left;
             const y = touch.clientY - rect.top;
-            const dx = x - joystick.x;
-            const dy = y - joystick.y;
+            const dx = x - (joystick.x + joystick.radius);
+            const dy = y - (joystick.y + joystick.radius);
             const distance = Math.sqrt(dx * dx + dy * dy);
             const maxDistance = joystick.radius;
             joystick.innerX = Math.min(maxDistance, distance) * (dx / distance);
             joystick.innerY = Math.min(maxDistance, distance) * (dy / distance);
-            joystick.x += joystick.innerX;
-            joystick.y += joystick.innerY;
+            joystick.x = joystick.radius + joystick.innerX;
+            joystick.y = joystick.radius + joystick.innerY;
         }
 
-        function shoot() {
-            if (player.alive) {
-                inkMap.push({ x: player.x, y: player.y, size: playerWeapon.ink, team: player.team, shape: playerWeapon.shape });
-            }
-        }
-
-        function selectNextWeapon() {
-            currentWeaponIndex = (currentWeaponIndex + 1) % weaponSelection.length;
-            updateWeapon();
+        function handleTouchEnd(e) {
+            e.preventDefault();
+            joystick.x = joystick.radius;
+            joystick.y = joystick.radius;
+            joystick.innerX = 0;
+            joystick.innerY = 0;
         }
 
         function updateCpu() {
@@ -316,19 +315,29 @@
             });
         }
 
-        function gameLoop() {
+        function update() {
             if (player.alive) {
                 updateCpu();
                 draw();
+                requestAnimationFrame(update);
             }
-            requestAnimationFrame(gameLoop);
         }
 
-        document.getElementById('shootButton').addEventListener('click', shoot);
-        document.getElementById('weaponButton').addEventListener('click', selectNextWeapon);
-        document.getElementById('joystick').addEventListener('touchmove', handleTouchMove);
+        document.getElementById('shootButton').addEventListener('click', () => {
+            if (player.alive) {
+                inkMap.push({ x: player.x, y: player.y, size: playerWeapon.ink, team: player.team, shape: playerWeapon.shape });
+            }
+        });
 
-        gameLoop();
+        document.getElementById('weaponButton').addEventListener('click', () => {
+            currentWeaponIndex = (currentWeaponIndex + 1) % weaponSelection.length;
+            updateWeapon();
+        });
+
+        document.getElementById('joystick').addEventListener('touchmove', handleTouchMove);
+        document.getElementById('joystick').addEventListener('touchend', handleTouchEnd);
+
+        update();
     </script>
 </body>
 </html>
