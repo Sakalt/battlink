@@ -270,8 +270,8 @@
                 const distance = Math.sqrt(dx * dx + dy * dy);
 
                 if (distance > 10) {
-                    const moveX = (dx / distance) * 1.2;
-                    const moveY = (dy / distance) * 1.2;
+                    const moveX = (dx / distance) * 1.04;
+                    const moveY = (dy / distance) * 1.04;
                     enemy.x += moveX;
                     enemy.y += moveY;
                 }
