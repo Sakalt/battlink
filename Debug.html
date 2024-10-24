@@ -74,17 +74,18 @@
         const canvas = document.getElementById('gameCanvas');
         const ctx = canvas.getContext('2d');
         const inkMap = [];
-        const bullets = [];
 
         const weapons = {
-            '剣': { fireRate: 100, power: 10, ink: 20, shape: 'circle' },
-            'レーザーガン': { fireRate: 200, power: 20, ink: 10, shape: 'circle' },
-            'マーカー': { fireRate: 300, power: 5, ink: 30, shape: 'circle' },
-            'バッシャー': { fireRate: 150, power: 15, ink: 15, shape: 'circle' },
-            'スピナー': { fireRate: 160, power: 10, ink: 50, shape: 'circle' },
-            'シャープアルコールマーカー': { fireRate: 250, power: 25, ink: 25, shape: 'line' },
-            'ラインマーカー': { fireRate: 150, power: 10, ink: 30, shape: 'line' },
-            'トライデント': { fireRate: 180, power: 30, ink: 20, shape: 'line' }
+            '剣': { fireRate: 100, power: 10, ink: 20, shape: 'circle', range: 100 },
+            'レーザーガン': { fireRate: 200, power: 20, ink: 10, shape: 'circle', range: 200 },
+            'マーカー': { fireRate: 300, power: 5, ink: 30, shape: 'circle', range: 150 },
+            'バッシャー': { fireRate: 150, power: 15, ink: 15, shape: 'circle', range: 120 },
+            'スピナー': { fireRate: 160, power: 10, ink: 50, shape: 'circle', range: 180 },
+            'シャープアルコールマーカー': { fireRate: 250, power: 25, ink: 25, shape: 'circle', range: 200 },
+            'ラインマーカー': { fireRate: 150, power: 10, ink: 30, shape: 'line', range: 150 },
+            'トライデント': { fireRate: 300, power: 25, ink: 40, shape: 'trident', range: 150 },
+            '星': { fireRate: 400, power: 30, ink: 20, shape: 'star', range: 100 },
+            '軌道銃': { fireRate: 390, power: 12, ink: 18, shape: 'star', range: 300 }
         };
 
         let player = {
@@ -99,9 +100,50 @@
             hp: 100
         };
 
-        const cpu = [
-            { x: 400, y: 300, size: 20, color: 'red', team: 'red', weapon: 'レーザーガン', hp: 100, shootCooldown: 0 },
-            { x: 600, y: 200, size: 20, color: 'red', team: 'red', weapon: 'マーカー', hp: 100, shootCooldown: 0 }
+        const enemies = [
+            {
+                x: 400,
+                y: 300,
+                size: 20,
+                color: 'red',
+                team: 'red',
+                weapon: '剣',
+                shootCooldown: 0.6,
+                hp: 80
+            },
+            {
+                x: 600,
+                y: 400,
+                size: 20,
+                color: 'red',
+                team: 'red',
+                weapon: 'レーザーガン',
+                shootCooldown: 0.9,
+                hp: 120
+            }
+        ];
+
+        const allies = [
+            {
+                x: 100,
+                y: 100,
+                size: 20,
+                color: 'blue',
+                team: 'blue',
+                weapon: 'バッシャー',
+                shootCooldown: 0,
+                hp: 100
+            },
+            {
+                x: 200,
+                y: 200,
+                size: 20,
+                color: 'blue',
+                team: 'blue',
+                weapon: 'スピナー',
+                shootCooldown: 0,
+                hp: 100
+            }
         ];
 
         let playerWeapon = weapons[player.weapon];
@@ -122,11 +164,21 @@
             ctx.closePath();
         }
 
-        function drawCpu() {
-            cpu.forEach(c => {
+        function drawEnemies() {
+            enemies.forEach(enemy => {
                 ctx.beginPath();
-                ctx.arc(c.x, c.y, c.size, 0, Math.PI * 2);
-                ctx.fillStyle = c.color;
+                ctx.arc(enemy.x, enemy.y, enemy.size, 0, Math.PI * 2);
+                ctx.fillStyle = enemy.color;
+                ctx.fill();
+                ctx.closePath();
+            });
+        }
+
+        function drawAllies() {
+            allies.forEach(ally => {
+                ctx.beginPath();
+                ctx.arc(ally.x, ally.y, ally.size, 0, Math.PI * 2);
+                ctx.fillStyle = ally.color;
                 ctx.fill();
                 ctx.closePath();
             });
@@ -140,147 +192,93 @@
                 } else if (ink.shape === 'line') {
                     ctx.moveTo(ink.x - ink.size, ink.y);
                     ctx.lineTo(ink.x + ink.size, ink.y);
+                    ctx.stroke(); // 線を描画
+                } else if (ink.shape === 'trident') {
+                    ctx.moveTo(ink.x, ink.y);
+                    ctx.lineTo(ink.x - ink.size / 2, ink.y - ink.size);
+                    ctx.lineTo(ink.x + ink.size / 2, ink.y - ink.size);
+                    ctx.closePath();
+                    ctx.moveTo(ink.x, ink.y);
+                    ctx.lineTo(ink.x - ink.size / 4, ink.y - ink.size * 1.5);
+                    ctx.lineTo(ink.x + ink.size / 4, ink.y - ink.size * 1.5);
+                    ctx.closePath();
+                } else if (ink.shape === 'star') {
+                    const radius = ink.size;
+                    const spikes = 5;
+                    const step = Math.PI / spikes;
+                    const shift = Math.PI / 2 * 3;
+                    ctx.beginPath();
+                    for (let i = 0; i < spikes * 2; i++) {
+                        const x = ink.x + Math.cos(shift + i * step) * (i % 2 === 0 ? radius : radius / 2);
+                        const y = ink.y + Math.sin(shift + i * step) * (i % 2 === 0 ? radius : radius / 2);
+                        ctx.lineTo(x, y);
+                    }
+                    ctx.closePath();
                 }
-                ctx.fillStyle = ink.team === 'blue' ? 'rgba(0, 0, 255, 0.3)' : 'rgba(255, 0, 0, 0.3)';
+                ctx.fillStyle = ink.team === 'blue' ? '#0000aa' : '#aa0000';
                 ctx.fill();
-                ctx.closePath();
+                ctx.stroke(); // ストロークを描画
             });
         }
 
-        function drawBullets() {
-            bullets.forEach(bullet => {
-                ctx.beginPath();
-                if (bullet.shape === 'circle') {
-                    ctx.arc(bullet.x, bullet.y, bullet.size, 0, Math.PI * 2);
-                } else if (bullet.shape === 'line') {
-                    ctx.moveTo(bullet.x1, bullet.y1);
-                    ctx.lineTo(bullet.x2, bullet.y2);
-                }
-                ctx.fillStyle = bullet.team === 'blue' ? 'rgba(0, 0, 255, 0.5)' : 'rgba(255, 0, 0, 0.5)';
-                ctx.fill();
-                ctx.closePath();
-            });
+        function moveTowards(target, unit, speedFactor) {
+            const dx = target.x - unit.x;
+            const dy = target.y - unit.y;
+            const distance = Math.sqrt(dx * dx + dy * dy);
+
+            if (distance > 10) {
+                const moveX = (dx / distance) * speedFactor;
+                const moveY = (dy / distance) * speedFactor;
+                unit.x += moveX;
+                unit.y += moveY;
+            }
         }
 
-        function draw() {
-            ctx.clearRect(0, 0, canvas.width, canvas.height);
-            drawInk();
-            drawBullets();
-            drawPlayer();
-            drawCpu();
+        function handleShooting(unit, target, weapon) {
+            const dx = target.x - unit.x;
+            const dy = target.y - unit.y;
+            const distance = Math.sqrt(dx * dx + dy * dy);
+
+            if (distance < weapon.range && unit.shootCooldown <= 0) {
+                inkMap.push({ x: unit.x, y: unit.y, size: weapon.ink, team: unit.team, shape: weapon.shape });
+                unit.shootCooldown = 1000; // クールダウン
+            }
+
+            unit.shootCooldown = Math.max(0, unit.shootCooldown - 1000 / 30);
         }
 
-        function respawnPlayer() {
-            setTimeout(() => {
-                player.x = 50;
-                player.y = 50;
-                player.alive = true;
-                player.hp = 100;
-                playerWeapon = weapons[player.weapon];
-            }, 3000); // 3秒後に復活
-        }
-
-        function handleTouchMove(event) {
-            const touch = event.touches[0];
-            const dx = touch.clientX - joystick.x;
-            const dy = touch.clientY - joystick.y;
-            const angle = Math.atan2(dy, dx);
-            const distance = Math.min(joystick.radius, Math.sqrt(dx * dx + dy * dy));
-
-            joystick.innerX = distance * Math.cos(angle);
-            joystick.innerY = distance * Math.sin(angle);
-            player.x += joystick.innerX / joystick.radius * player.speed;
-            player.y += joystick.innerY / joystick.radius * player.speed;
-
-            // ジョイスティックの位置更新
-            document.getElementById('joystickInner').style.transform = `translate(${joystick.innerX}px, ${joystick.innerY}px)`;
-
-            // 画面から外れないようにする
-            player.x = Math.max(0, Math.min(canvas.width, player.x));
-            player.y = Math.max(0, Math.min(canvas.height, player.y));
-        }
-
-        function shoot() {
-            if (!player.alive) return;
-            // インクを地面に追加
-            inkMap.push({ x: player.x, y: player.y, size: playerWeapon.ink, team: player.team, shape: playerWeapon.shape });
-        }
-
-        function selectNextWeapon() {
-            currentWeaponIndex = (currentWeaponIndex + 1) % weaponSelection.length;
-            updateWeapon();
+        function updateCpuUnit(unit, target, speedFactor, weapon) {
+            moveTowards(target, unit, speedFactor);
+            handleShooting(unit, target, weapon);
         }
 
         function updateCpu() {
-            cpu.forEach(c => {
-                // プレイヤーが近くにいる場合に攻撃する
-                const dx = player.x - c.x;
-                const dy = player.y - c.y;
-                const distance = Math.sqrt(dx * dx + dy * dy);
+            enemies.forEach(enemy => {
+                updateCpuUnit(enemy, player, 1.04, weapons[enemy.weapon]);
+            });
 
-                if (distance < 100) { // プレイヤーが近くにいる場合
-                    if (c.shootCooldown <= 0) {
-                        // プレイヤーに向かってインクを撃つ
-                        bullets.push({ x: c.x, y: c.y, size: weapons[c.weapon].ink, team: c.team, shape: weapons[c.weapon].shape, x1: c.x, y1: c.y, x2: player.x, y2: player.y });
-                        c.shootCooldown = 1000; // クールダウン
-                    }
-                }
-
-                // クールダウンを減少させる
-                c.shootCooldown = Math.max(0, c.shootCooldown - 1000 / 30);
+            allies.forEach(ally => {
+                moveTowards(player, ally, 1.2);
+                enemies.forEach(enemy => {
+                    updateCpuUnit(ally, enemy, 1.2, weapons[ally.weapon]);
+                });
             });
         }
 
-        function checkCollision() {
-            const dx = player.x - cpu.x;
-            const dy = player.y - cpu.y;
-            const distance = Math.sqrt(dx * dx + dy * dy);
+        function gameLoop() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-            if (distance < player.size + cpu.size) {
-                player.hp -= 10; // プレイヤーのHPを減少
-                if (player.hp <= 0) {
-                    player.alive = false;
-                    respawnPlayer();
-                }
-            }
+            drawPlayer();
+            drawEnemies();
+            drawAllies();
+            drawInk();
 
-            cpu.forEach(c => {
-                const dx = player.x - c.x;
-                const dy = player.y - c.y;
-                const distance = Math.sqrt(dx * dx + dy * dy);
+            updateCpu();
 
-                if (distance < player.size + c.size) {
-                    c.hp -= 10; // CPUのHPを減少
-                    if (c.hp <= 0) {
-                        // CPUを再生成
-                        c.x = Math.random() * canvas.width;
-                        c.y = Math.random() * canvas.height;
-                        c.hp = 100;
-                    }
-                }
-            });
+            requestAnimationFrame(gameLoop);
         }
 
-        document.getElementById('joystick').addEventListener('touchmove', handleTouchMove);
-        document.getElementById('shootButton').addEventListener('click', shoot);
-        document.getElementById('weaponButton').addEventListener('click', selectNextWeapon);
-
-        function updateJoystickPosition() {
-            const joystickElem = document.getElementById('joystick');
-            joystick.x = joystickElem.offsetLeft + joystickElem.clientWidth / 2;
-            joystick.y = joystickElem.offsetTop + joystickElem.clientHeight / 2;
-        }
-
-        updateJoystickPosition();
-        setInterval(() => {
-            if (player.alive) {
-                draw();
-                updateCpu();
-                checkCollision();
-            } else {
-                respawnPlayer();
-            }
-        }, 1000 / 30); // 毎秒30フレーム
+        gameLoop();
     </script>
 </body>
 </html>
